@@ -12,9 +12,7 @@
 #include <sys/msg.h>
 #include <stddef.h>
 #include <string.h>
-#include "msgq.h"
-
-PyObject *pickle;
+#include "_msgq.h"
 
 static PyObject *
 msgq_ftok(PyObject *self, PyObject *args)
@@ -57,18 +55,15 @@ msgq_msgsnd(PyObject *self, PyObject *args)
   int msqid, msgflg, rv;
   const char *cstring;
   size_t msgsz;
-  PyObject *dumps, *data, *string;
+  PyObject *string;
 
   struct size_msgbuf size_msg;
   struct msgbuf *data_msg;
 
-  if (!PyArg_ParseTuple(args, "iiO", &msqid, &msgflg, &data)) {
+  if (!PyArg_ParseTuple(args, "iiO", &msqid, &msgflg, &string)) {
     return NULL;
   }
 
-  // Pickle object
-  dumps = PyObject_GetAttr(pickle, Py_BuildValue("s", "dumps"));
-  string = PyObject_CallFunctionObjArgs(dumps, data, NULL);
   cstring = PyString_AsString(string);
 
   data_msg = PyMem_Malloc(offsetof(struct msgbuf, mtext) + strlen(cstring) + 1);
@@ -108,7 +103,7 @@ msgq_msgrcv(PyObject *self, PyObject *args)
 {
   int msqid, msgflg;
   size_t msgsz;
-  PyObject *loads, *data;
+  PyObject *data;
 
   struct size_msgbuf size_msg;
   struct msgbuf *data_msg;
@@ -119,7 +114,7 @@ msgq_msgrcv(PyObject *self, PyObject *args)
 
   // Get message size
   msgsz = sizeof(struct size_msgbuf) - sizeof(long);
-  if (msgrcv(msqid, &size_msg, msgsz, SIZE_MSG, 0) == -1) {
+  if (msgrcv(msqid, &size_msg, msgsz, SIZE_MSG, IPC_NOWAIT) == -1) {
     return PyErr_SetFromErrno(PyExc_IOError);
   }
 
@@ -134,8 +129,7 @@ msgq_msgrcv(PyObject *self, PyObject *args)
   }
 
   // Convert back to Python object
-  loads = PyObject_GetAttr(pickle, Py_BuildValue("s", "loads"));
-  data = PyObject_CallFunctionObjArgs(loads, Py_BuildValue("s", data_msg->mtext), NULL);
+  data = PyString_FromString(data_msg->mtext);
 
   PyMem_Free(data_msg);
   return data;
@@ -178,37 +172,37 @@ msgq_msgctl(PyObject *self, PyObject *args)
     dict_ipc_perm = PyDict_New();
     tmp_obj = Py_BuildValue("i", buf->msg_perm.__key);
     PyDict_SetItemString(dict_ipc_perm, "__key",
-			 tmp_obj);
+       tmp_obj);
     Py_DECREF(tmp_obj);
 
     tmp_obj = Py_BuildValue("i", buf->msg_perm.uid);
     PyDict_SetItemString(dict_ipc_perm, "uid",
-			 tmp_obj);
+       tmp_obj);
     Py_DECREF(tmp_obj);
 
     tmp_obj = Py_BuildValue("i", buf->msg_perm.gid);
     PyDict_SetItemString(dict_ipc_perm, "gid",
-			 tmp_obj);
+       tmp_obj);
     Py_DECREF(tmp_obj);
 
     tmp_obj = Py_BuildValue("i", buf->msg_perm.cuid);
     PyDict_SetItemString(dict_ipc_perm, "cuid",
-			 tmp_obj);
+       tmp_obj);
     Py_DECREF(tmp_obj);
 
     tmp_obj = Py_BuildValue("i", buf->msg_perm.cgid);
     PyDict_SetItemString(dict_ipc_perm, "cgid",
-			 tmp_obj);
+       tmp_obj);
     Py_DECREF(tmp_obj);
 
     tmp_obj = Py_BuildValue("H", buf->msg_perm.mode);
     PyDict_SetItemString(dict_ipc_perm, "mode",
-			 tmp_obj);
+       tmp_obj);
     Py_DECREF(tmp_obj);
 
     tmp_obj = Py_BuildValue("H", buf->msg_perm.__seq);
     PyDict_SetItemString(dict_ipc_perm, "__seq",
-			 tmp_obj);
+       tmp_obj);
     Py_DECREF(tmp_obj);
 
     dict_msqid_ds = PyDict_New();
@@ -217,37 +211,37 @@ msgq_msgctl(PyObject *self, PyObject *args)
 
     tmp_obj = Py_BuildValue("i", buf->msg_stime);
     PyDict_SetItemString(dict_msqid_ds, "msg_stime",
-			 tmp_obj);
+       tmp_obj);
     Py_DECREF(tmp_obj);
 
     tmp_obj = Py_BuildValue("i", buf->msg_rtime);
     PyDict_SetItemString(dict_msqid_ds, "msg_rtime",
-			 tmp_obj);
+       tmp_obj);
     Py_DECREF(tmp_obj);
 
     tmp_obj = Py_BuildValue("i", buf->msg_ctime);
     PyDict_SetItemString(dict_msqid_ds, "msg_ctime",
-			 tmp_obj);
+       tmp_obj);
     Py_DECREF(tmp_obj);
 
     tmp_obj = Py_BuildValue("i", buf->msg_qnum);
     PyDict_SetItemString(dict_msqid_ds, "msg_qnum",
-			 tmp_obj);
+       tmp_obj);
     Py_DECREF(tmp_obj);
 
     tmp_obj = Py_BuildValue("i", buf->msg_qbytes);
     PyDict_SetItemString(dict_msqid_ds, "msg_qbytes",
-			 tmp_obj);
+       tmp_obj);
     Py_DECREF(tmp_obj);
 
     tmp_obj = Py_BuildValue("i", buf->msg_lspid);
     PyDict_SetItemString(dict_msqid_ds, "msg_lspid",
-			 tmp_obj);
+       tmp_obj);
     Py_DECREF(tmp_obj);
 
     tmp_obj = Py_BuildValue("i", buf->msg_lrpid);
     PyDict_SetItemString(dict_msqid_ds, "msg_lrpid",
-			 tmp_obj);
+       tmp_obj);
     Py_DECREF(tmp_obj);
 
     return dict_msqid_ds;
@@ -276,20 +270,14 @@ ftok, msgget, msgsnd, msgrcv and msgctl\n\n\
 See man-pages for further information.");
 
 PyMODINIT_FUNC
-initmsgq(void)
+init_msgq(void)
 {
   PyObject *m;
 
-  m = Py_InitModule3("msgq", msgq_methods, msgq_doc);
+  m = Py_InitModule3("_msgq", msgq_methods, msgq_doc);
   if (m == NULL) {
     return;
   }
-
-  // import json module
-  if ((pickle = PyImport_ImportModule("pickle")) == NULL) {
-    return;
-  }
-  Py_INCREF(pickle);
 
   PyModule_AddIntConstant(m, "IPC_CREAT", IPC_CREAT);
   PyModule_AddIntConstant(m, "IPC_EXCL", IPC_EXCL);
@@ -300,4 +288,3 @@ initmsgq(void)
   PyModule_AddIntConstant(m, "IPC_INFO", IPC_INFO);
   PyModule_AddIntConstant(m, "IPC_PRIVATE", IPC_PRIVATE);
 }
-

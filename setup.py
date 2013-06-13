@@ -10,7 +10,7 @@ setup(name='msgq',
       author='Lars Djerf',
       author_email='lars.djerf@gmail.com',
       url='',
-      ext_modules=[Extension('msgq', ['msgq.c'])],
+      ext_modules=[Extension('_msgq', ['_msgq.c'])],
       packages=find_packages(),
       test_suite="tests"
       )

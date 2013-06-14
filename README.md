@@ -1,6 +1,7 @@
 msgq: System V IPC Message Queue Python Extension Module
-Originally by *Lars Djerf*
 ========================================================
+
+Originally by *Lars Djerf*
 
 This extension wraps and makes system calls related to System V message queues 
 available to Python applications. The following system calls are exposed:

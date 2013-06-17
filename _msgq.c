@@ -53,11 +53,16 @@ msgq_msgsnd(PyObject *self, PyObject *args) {
     const char        *cstring;
     size_t             msgsz;
     PyObject          *string;
-
+    int                msg_size_var;
+    int                msg_data_var;
     struct size_msgbuf size_msg;
     struct msgbuf     *data_msg;
 
-    if (!PyArg_ParseTuple(args, "iiO", &msqid, &msgflg, &string)) {
+    msg_size_var = DEFAULT_SIZE_MSG;
+    msg_data_var = DEFAULT_DATA_MSG;
+
+    if (!PyArg_ParseTuple(args, "iiO|ii", &msqid, &msgflg, &string,
+                          &msg_size_var, &msg_data_var)) {
         return NULL;
     }
 
@@ -68,14 +73,15 @@ msgq_msgsnd(PyObject *self, PyObject *args) {
         return PyErr_SetFromErrno(PyExc_IOError);
     }
 
-    data_msg->mtype = DATA_MSG;
+    data_msg->mtype = msg_data_var;
+
     if (memcpy(&data_msg->mtext, cstring, strlen(cstring) + 1) == NULL) {
         PyErr_SetString(PyExc_IOError, "Failed to copy data into memory.");
         return NULL;
     }
 
     /* Send message size */
-    size_msg.mtype = SIZE_MSG;
+    size_msg.mtype = msg_size_var;
     size_msg.size  = strlen(cstring) + 1;
     msgsz          = sizeof(struct size_msgbuf) - sizeof(long);
     if ((rv = msgsnd(msqid, &size_msg, msgsz, msgflg)) == -1) {
@@ -98,19 +104,25 @@ msgq_msgsnd(PyObject *self, PyObject *args) {
 static PyObject *
 msgq_msgrcv(PyObject *self, PyObject *args) {
     int                msqid, msgflg;
+    int                msg_size_var;
+    int                msg_data_var;
     size_t             msgsz;
     PyObject          *data;
-
     struct size_msgbuf size_msg;
     struct msgbuf     *data_msg;
 
-    if (!PyArg_ParseTuple(args, "ii", &msqid, &msgflg)) {
+    msg_size_var = DEFAULT_SIZE_MSG;
+    msg_data_var = DEFAULT_DATA_MSG;
+
+    if (!PyArg_ParseTuple(args, "ii|ii",
+                          &msqid, &msgflg, &msg_size_var, &msg_data_var)) {
         return NULL;
     }
 
     /* Get message size */
     msgsz = sizeof(struct size_msgbuf) - sizeof(long);
-    if (msgrcv(msqid, &size_msg, msgsz, SIZE_MSG, IPC_NOWAIT) == -1) {
+
+    if (msgrcv(msqid, &size_msg, msgsz, msg_size_var, IPC_NOWAIT) == -1) {
         return PyErr_SetFromErrno(PyExc_IOError);
     }
 
@@ -119,7 +131,7 @@ msgq_msgrcv(PyObject *self, PyObject *args) {
     }
 
     /* Get message */
-    if (msgrcv(msqid, data_msg, size_msg.size, DATA_MSG, msgflg) == -1) {
+    if (msgrcv(msqid, data_msg, size_msg.size, msg_data_var, msgflg) == -1) {
         PyMem_Free(data_msg);
         return PyErr_SetFromErrno(PyExc_IOError);
     }
@@ -134,9 +146,7 @@ msgq_msgrcv(PyObject *self, PyObject *args) {
 static PyObject *
 msgq_msgctl(PyObject *self, PyObject *args) {
     int             msqid, cmd, rv;
-    struct msqid_ds ipc_stat_ds;
     struct msqid_ds buf;
-    struct msginfo  ipc_info_ds;
     PyObject       *dict_msqid_ds, *dict_ipc_perm, *tmp_obj;
 
     if (!PyArg_ParseTuple(args, "ii", &msqid, &cmd)) {
@@ -253,10 +263,29 @@ wrapping relevant system calls:\n\
 ftok, msgget, msgsnd, msgrcv and msgctl\n\n\
 See man-pages for further information."                                                                                                                                                                  );
 
-initmsgq(void) {
+#if PY_MAJOR_VERSION >= 3
+#define MOD_ERROR_VAL NULL
+#define MOD_SUCCESS_VAL(val) val
+#define MOD_INIT(name)       PyMODINIT_FUNC PyInit_ ## name(void)
+#define MOD_DEF(ob, name, doc, methods)               \
+    static struct PyModuleDef moduledef = {           \
+        PyModuleDef_HEAD_INIT, name, doc, -1, methods \
+    };                                                \
+                                                      \
+    ob = PyModule_Create(&moduledef);
+#else
+#define MOD_ERROR_VAL
+#define MOD_SUCCESS_VAL(val)
+#define MOD_INIT(name)       void init ## name(void)
+#define MOD_DEF(ob, name, doc, methods) \
+    ob = Py_InitModule3(name, methods, doc);
+#endif
+
+
+MOD_INIT(msgqueue) {
     PyObject *m;
 
-    m = Py_InitModule3("msgq", msgq_methods, msgq_doc);
+    MOD_DEF(m, "msgq", msgq_doc, msgq_methods);
 
     if (m == NULL) {
         return;
@@ -271,5 +300,5 @@ initmsgq(void) {
     PyModule_AddIntConstant(m, "IPC_INFO", IPC_INFO);
     PyModule_AddIntConstant(m, "IPC_PRIVATE", IPC_PRIVATE);
 
-    return m;
+    return MOD_SUCCESS_VAL(m);
 }

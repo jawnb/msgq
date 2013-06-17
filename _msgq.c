@@ -274,7 +274,8 @@ init_msgq(void)
 {
   PyObject *m;
 
-  m = Py_InitModule3("_msgq", msgq_methods, msgq_doc);
+  m = Py_InitModule3("msgq", msgq_methods, msgq_doc);
+
   if (m == NULL) {
     return;
   }

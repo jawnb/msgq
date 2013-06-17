@@ -1,4 +1,4 @@
-import _msgq
+import msgq
 import json
 import pickle
 

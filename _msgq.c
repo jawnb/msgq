@@ -282,7 +282,7 @@ See man-pages for further information."                                         
 #endif
 
 
-MOD_INIT(msgqueue) {
+MOD_INIT(msgq) {
     PyObject *m;
 
     MOD_DEF(m, "msgq", msgq_doc, msgq_methods);

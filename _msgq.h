@@ -13,7 +13,7 @@ struct size_msgbuf
   int size;
 };
 
-#define SIZE_MSG 2
-#define DATA_MSG 3
+#define DEFAULT_SIZE_MSG 2
+#define DEFAULT_DATA_MSG 3
 
 #endif

@@ -260,11 +260,12 @@ ftok, msgget, msgsnd, msgrcv and msgctl\n\n\
 See man-pages for further information.");
 
 PyMODINIT_FUNC
-init_msgq(void)
+initmsgq(void)
 {
   PyObject *m;
 
-  m = Py_InitModule3("_msgq", msgq_methods, msgq_doc);
+  m = Py_InitModule3("msgq", msgq_methods, msgq_doc);
+
   if (m == NULL) {
     return;
   }
@@ -277,4 +278,6 @@ init_msgq(void)
   PyModule_AddIntConstant(m, "IPC_STAT", IPC_STAT);
   PyModule_AddIntConstant(m, "IPC_INFO", IPC_INFO);
   PyModule_AddIntConstant(m, "IPC_PRIVATE", IPC_PRIVATE);
+
+  return m;
 }

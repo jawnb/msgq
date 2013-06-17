@@ -21,8 +21,6 @@ class IPCMessageQueue(object):
         serialize = self.serialize
         if flag is None:
             flag = 0
-        print item
-#        import ipdb; ipdb.set_trace()
         msg_string = self.serialize.__func__(str(item))
         _msgq.msgsnd(self.id, flag, msg_string)
 
@@ -33,6 +31,13 @@ class IPCMessageQueue(object):
         serialized_string = _msgq.msgrcv(self.id, flag)
 
         return self.deserialize.__func__(serialized_string)
+
+    def __iter__(self):
+        while True:
+            try:
+                yield self.get()
+            except:
+                break
 
 class PickleQueue(IPCMessageQueue):
     serialize = pickle.dumps
